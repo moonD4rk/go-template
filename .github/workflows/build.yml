@@ -1,34 +1,48 @@
-name: build
+name: Build
 on:
   push:
     branches:
       - main
   pull_request:
+  workflow_dispatch:
+
 jobs:
   build:
-    name: Build
-    runs-on: ubuntu-latest
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        goVer: ["1.21"]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        go-version: ["1.21.x"]
 
     steps:
-    - name: Set up Go ${{ matrix.goVer }}
-      uses: actions/setup-go@v1
-      with:
-        go-version: ${{ matrix.goVer }}
-      id: go
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v4
 
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v2
+      - name: Set up Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: false
+        id: go
 
-    - name: Get dependencies
-      run: |
-        go get -v -t -d ./...
-        go get gopkg.in/check.v1
-        
-    - name: Format
-      run: diff -u <(echo -n) <(gofmt -d .)    
-      
-    - name: Build
-      run: go build -v ./...
+      - name: cache go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Format Check
+        if: matrix.os != 'windows-latest'
+        run: |
+          diff -u <(echo -n) <(gofmt -d .)
+
+      - name: Get dependencies
+        run: go mod download
+
+      - name: Build
+        run: go build -v ./...

@@ -22,3 +22,6 @@ go.work
 
 # github
 !.github/workflows/*
+
+# repo config
+!.typos.toml
